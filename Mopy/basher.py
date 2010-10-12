@@ -9669,6 +9669,71 @@ class Mod_UndeleteRefs(Link):
         finally:
             progress = progress.Destroy()
 
+
+
+
+
+
+
+#------------------------------------------------------------------------------
+class Mod_FOJPize(Link):
+    """Replace non-alphabetical messages."""
+    def AppendToMenu(self,menu,window,data):
+        Link.AppendToMenu(self,menu,window,data)
+        menuItem = wx.MenuItem(menu,self.id,_('FOJPize (format: JP@mesid@...)'))
+        menu.AppendItem(menuItem)
+        menuItem.Enable(bool(self.data))
+
+    def Execute(self,event):
+        fileName = GPath(self.data[0])
+        if fileName in ('Fallout3.esm', 'Anchorage.esm', 'ThePitt.esm', 'BrokenSteel.esm', 'PointLookout.esm', 'Zeta.esm'):
+            balt.showError(self.parent,_('%s is bethesda esm! Kikenga Abunai.') % fileName)
+            return
+        message = _("Replace non-alphabetical message to JP@mesid@...")
+        if not balt.askContinue(self.window,message,'bash.fojpize.continue',
+            _('FOJPize1')):
+            return
+        fileInfo = bosh.modInfos[fileName]
+        textNameEn = fileName.root+_('_en.txt')
+        textDirEn = bosh.dirs['patches']
+        textDirEn.makedirs()
+        textNameJa = fileName.root+_('_ja.txt')
+        textDirJa = bosh.dirs['patches']
+        textDirJa.makedirs()
+        #--File dialog
+        textPathEn = balt.askSave(self.window,_('Export english dic to:'),
+            textDirEn,textNameEn, '*_en.txt')
+        if not textPathEn: return
+        (textDir,textNameEn) = textPathEn.headTail
+        textPathJa = balt.askSave(self.window,_('Export japanese dic to:'),
+            textDirJa,textNameJa, '*_ja.txt')
+        if not textPathJa: return
+        (textDirJa,textNameJa) = textPathJa.headTail
+        progress = balt.Progress(_("FOJPize1"))
+        try:
+            progress(0.1,_("Scanning %s.") % (fileName.s,))
+            fileInfo = bosh.modInfos[fileName]
+            fojpize = bosh.FOJPizeMod()
+            progress(0.5,_("Replacing to %s.") % (textNameJa.s,))
+            fojpize.replaceText(fileInfo)
+            progress(0.7,_("Writing to %s.") % (textNameEn.s,))
+            fojpize.writeToTextEn(textPathEn)
+            progress(0.9,_("Writing to %s.") % (textNameJa.s,))
+            fojpize.writeToTextJa(textPathJa)
+            progress(1.0,_("Done."))
+            progress.Destroy()
+            if fojpize.replaceTexts:
+                message = _("===Message Replaced:\n")+('\n'.join(['* %s -> %s' % (t[0],t[1]) for t in fojpize.replaceTexts]))
+                balt.showWryeLog(self.window,message,_('FOJPize'),icons=bashBlue)
+            else:
+                message = _("No changes required.")
+                balt.showOk(self.window,message,_('FOJPize'))
+        finally:
+            progress = progress.Destroy()
+
+
+
+
 # Saves Links ------------------------------------------------------------------
 #------------------------------------------------------------------------------
 class Saves_ProfilesData(balt.ListEditorData):
@@ -12081,6 +12146,7 @@ def InitModLinks():
 #        advmenu = MenuLink(_("Advanced Scripts"))
 #        advmenu.links.append(Mod_DiffScripts())
         #advmenu.links.append(())
+    ModList.itemMenu.append(Mod_FOJPize())
 
 def InitSaveLinks():
     """Initialize save tab menus."""

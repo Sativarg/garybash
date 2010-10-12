@@ -70,6 +70,7 @@ import sys
 from types import *
 from operator import attrgetter,itemgetter
 from xml.etree import ElementTree
+import hashlib
 
 #--Local
 import balt
@@ -15695,6 +15696,57 @@ class UndeleteRefs:
             path.temp.remove()
 
 #------------------------------------------------------------------------------
+class FOJPizeMod:
+    def __init__(self):
+        self.types = set((
+                'ALCH', 'AMMO', 'APPA', 'ARMO', 'BOOK', 'CLAS', 'CLOT', 'CONT', 'CREA', 'DOOR',
+                'EYES', 'FACT', 'FLOR', 'HAIR','INGR', 'KEYM', 'MISC', 'NPC_', 'RACE', 'SPEL','WEAP',
+                ))
+        self.reAscii = re.compile('^[\x00-\x7F]*$', re.M)
+        self.replaceTexts = []
+
+    def replaceText(self,modInfo):
+        types = self.types
+        reAscii = self.reAscii
+        replaceTexts = self.replaceTexts
+        classes = [MreRecord.type_class[x] for x in self.types]
+        loadFactory= LoadFactory(True,*classes)
+        modFile = ModFile(modInfo,loadFactory)
+        modFile.load(True)
+        for type in types:
+                typeBlock = modFile.tops.get(type,None)
+                if not typeBlock: continue
+                for record in typeBlock.getActiveRecords():
+                    full = record.full
+                    if not reAscii.match(full):
+                        m = hashlib.sha1()
+                        m.update(modInfo.name.s)
+                        m.update(record.eid)
+                        m.update(full)
+                        mesid = "JP@%s" % m.hexdigest()[:8]
+                        replaceTexts.append((full, mesid))
+                        record.full = mesid
+                        record.setChanged()
+        if replaceTexts:
+            modFile.safeSave()
+
+    def writeToTextEn(self,textPath):
+        textPath = GPath(textPath)
+        replaceTexts = self.replaceTexts
+        out = textPath.open('w')
+        for text in replaceTexts:
+            out.write(text[0] + '\n')
+        out.close()
+
+    def writeToTextJa(self,textPath):
+        textPath = GPath(textPath)
+        replaceTexts = self.replaceTexts
+        out = textPath.open('w')
+        for text in replaceTexts:
+            out.write(text[1] + '\n')
+        out.close()
+
+#------------------------------------------------------------------------------
 class SaveSpells:
     """Player spells of a savegame."""
 
@@ -20739,6 +20791,7 @@ class NamesTweak_SortInventory(MultiTweakItem):
             # weapon,armor,stimpak,chem,food/drink,ammo
             (_('Chem>Ammo>Weapon>Armor>Food>Misc'),3,2,6,5,1,4),
             (_('Ammo>Chem>Weapon>Armor>Food>Misc'),3,2,5,4,1,6),
+            (_('Weapon>Armor>Chem>Food>Misc>Ammo'),6,5,4,3,2,1),
             )
 
     #--Config Phase -----------------------------------------------------------
